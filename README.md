@@ -60,3 +60,7 @@ GitHub Pages via `.github/workflows/pages.yml`. Enable it with
 - Verify against a real IC-F8101 (4- and 6-digit IDs)
 - Reference captures in `test/fixtures/`
 - Icom Selcall flavour (needs a capture)
+
+## License
+
+MIT. See [LICENSE](LICENSE).
