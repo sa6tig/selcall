@@ -1,6 +1,6 @@
 // Cache-first service worker so the app works offline after the first visit.
-// Bump VERSION whenever any cached file changes.
-const VERSION = 'v1';
+// The deploy workflow replaces VERSION with the commit SHA.
+const VERSION = 'dev';
 const CACHE = `selcall-${VERSION}`;
 const FILES = [
   './',
@@ -15,7 +15,10 @@ const FILES = [
 ];
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(FILES)).then(() => self.skipWaiting()));
+  e.waitUntil(caches
+      .open(CACHE)
+      // Bypass the HTTP cache so a new worker never precaches stale files.
+      .then((c) => c.addAll(FILES.map((u) => new Request(u, { cache: 'reload' })))).then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', (e) => {

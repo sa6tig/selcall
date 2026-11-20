@@ -52,7 +52,8 @@ export function individualCallMessage({ to, from }) {
 /**
  * Interleave phasing and message into transmit order (DX, RX, DX, RX, ...).
  * The RX stream lags DX by two symbols (time diversity). The format specifier
- * fills the first two RX slots; EOS is sent three times in DX and once in RX.
+ * also fills the two leading RX slots, so it appears three times in RX and once
+ * in DX. EOS is sent three times in DX and once in RX.
  * @param {number[]} message format specifier first, EOS last
  * @returns {number[]}
  */

@@ -14,8 +14,18 @@ function goertzel(samples, start, len, freq, sampleRate) {
   return s1 * s1 + s2 * s2 - k * s1 * s2;
 }
 
-test('length is bits / baud seconds', () => {
-  assert.equal(modulate([0, 1, 0, 1], { sampleRate: 48000, baud: 100 }).length, 1920);
+test('length is bits / baud seconds plus tail', () => {
+  assert.equal(modulate([0, 1, 0, 1], { sampleRate: 48000, baud: 100, tailMs: 0 }).length, 1920);
+  assert.equal(modulate([0, 1, 0, 1], { sampleRate: 48000, baud: 100, tailMs: 30 }).length, 1920 + 1440);
+});
+
+test('fade-out stays in the tail: last bit keeps full amplitude', () => {
+  const sr = 48000;
+  const s = modulate([0, 1], { sampleRate: sr, rampMs: 5, tailMs: 30 });
+  let peak = 0;
+  for (let i = 480; i < 960; i++) peak = Math.max(peak, Math.abs(s[i]));
+  assert.ok(peak > 0.79, `last bit peak ${peak}`);
+  assert.ok(Math.abs(s[s.length - 1]) < 0.01);
 });
 
 test('each bit carries the expected tone', () => {

@@ -3,20 +3,33 @@
 let ctx = null;
 
 /**
- * Play samples. Must be called from a user gesture the first time (autoplay policy).
+ * Play samples. Call from a user gesture (autoplay policy).
+ * `done` resolves when playback ends or `stop()` is called.
  * @param {Float32Array} samples
  * @param {number} sampleRate
- * @returns {{done: Promise<void>, stop: () => void}}
+ * @returns {Promise<{done: Promise<void>, stop: () => void}>}
  */
-export function play(samples, sampleRate) {
+export async function play(samples, sampleRate) {
   ctx ??= new AudioContext();
-  if (ctx.state === 'suspended') ctx.resume();
+  if (ctx.state !== 'running') await ctx.resume();
   const buf = ctx.createBuffer(1, samples.length, sampleRate);
   buf.copyToChannel(samples, 0);
   const src = ctx.createBufferSource();
   src.buffer = buf;
   src.connect(ctx.destination);
-  const done = new Promise((resolve) => (src.onended = () => resolve()));
+  let finish;
+  const done = new Promise((resolve) => (finish = resolve));
+  src.onended = () => finish();
   src.start();
-  return { done, stop: () => src.stop() };
+  return {
+    done,
+    stop: () => {
+      try {
+        src.stop();
+      } catch {
+        /* already stopped */
+      }
+      finish();
+    },
+  };
 }

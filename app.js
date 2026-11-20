@@ -67,10 +67,11 @@ form.addEventListener('submit', async (e) => {
   callBtn.classList.add('active');
 
   try {
-    remember(to, from);
     const samples = modulate(individualCallBits({ to, from, preambleBits }));
+    remember(to, from);
     status.textContent = `Calling ${to} from ${from}…`;
-    player = play(samples, DEFAULT_FSK.sampleRate);
+    player = await play(samples, DEFAULT_FSK.sampleRate);
+    if (cancelled) player.stop();
     await player.done;
     status.textContent = cancelled ? 'Stopped.' : 'Done. Release PTT.';
   } catch (err) {

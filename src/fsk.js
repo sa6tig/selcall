@@ -8,6 +8,7 @@ export const DEFAULT_FSK = Object.freeze({
   freq1: 1870,
   amplitude: 0.8,
   rampMs: 5, // raised-cosine fade in/out to avoid clicks
+  tailMs: 30, // last bit's tone held after the frame; the fade-out happens here
 });
 
 /**
@@ -17,8 +18,8 @@ export const DEFAULT_FSK = Object.freeze({
  * @returns {Float32Array}
  */
 export function modulate(bits, opts = {}) {
-  const { sampleRate, baud, freq0, freq1, amplitude, rampMs } = { ...DEFAULT_FSK, ...opts };
-  const total = Math.round((bits.length * sampleRate) / baud);
+  const { sampleRate, baud, freq0, freq1, amplitude, rampMs, tailMs } = { ...DEFAULT_FSK, ...opts };
+  const total = Math.round((bits.length * sampleRate) / baud) + Math.round((tailMs * sampleRate) / 1000);
   const out = new Float32Array(total);
   let phase = 0;
   for (let n = 0; n < total; n++) {

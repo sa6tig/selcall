@@ -40,8 +40,9 @@ python -m http.server 8000
 Service workers need HTTPS or localhost. To test on the phone, use the GitHub
 Pages URL or `adb reverse tcp:8000 tcp:8000`.
 
-Bump `VERSION` in `sw.js` whenever a cached file changes, or installed copies keep
-the old version.
+The deploy workflow stamps `VERSION` in `sw.js` with the commit SHA, so every
+deploy gets a fresh offline cache. Installed copies update on the next launch
+with a connection.
 
 ## Deploy
 
