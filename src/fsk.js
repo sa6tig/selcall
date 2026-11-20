@@ -31,7 +31,9 @@ function fail(name, value, rule) {
  * @returns {Float32Array}
  */
 export function modulate(bits, opts = {}) {
-  const { sampleRate, baud, freq0, freq1, amplitude, rampMs, leadMs, tailMs, smoothMs } = { ...DEFAULT_FSK, ...opts };
+  const { sampleRate, baud, freq0, freq1, amplitude, leadMs, tailMs, smoothMs } = { ...DEFAULT_FSK, ...opts };
+  // The default fade shrinks to fit a shorter lead or tail; an explicit rampMs is validated as given.
+  const rampMs = opts.rampMs ?? Math.min(DEFAULT_FSK.rampMs, leadMs, tailMs);
   if (!Array.isArray(bits) || bits.length === 0) fail('bits', bits, 'a non-empty array');
   bits.forEach((b, i) => b === 0 || b === 1 || fail(`bits[${i}]`, b, '0 or 1'));
   if (!positive(sampleRate)) fail('sampleRate', sampleRate, 'a positive number');

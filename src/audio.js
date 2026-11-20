@@ -18,7 +18,8 @@ export function unlock() {
 
 /**
  * Play samples. Call unlock() from the user gesture first.
- * `done` resolves when playback ends or `stop()` is called.
+ * `done` resolves when playback ends or `stop()` is called; after `stop()` the
+ * audio fades out over a further 10 ms.
  * @param {Float32Array} samples
  * @param {number} sampleRate
  * @returns {Promise<{done: Promise<void>, stop: () => void}>}

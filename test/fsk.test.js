@@ -6,7 +6,7 @@ import { goertzel } from './helpers.js';
 test('length is lead plus bits / baud seconds plus tail', () => {
   const opts = { sampleRate: 48000, baud: 100 };
   assert.equal(modulate([0, 1, 0, 1], { ...opts, leadMs: 0, tailMs: 0, rampMs: 0 }).length, 1920);
-  assert.equal(modulate([0, 1, 0, 1], { ...opts, leadMs: 20, tailMs: 30, rampMs: 5 }).length, 960 + 1920 + 1440);
+  assert.equal(modulate([0, 1, 0, 1], { ...opts, leadMs: 20, tailMs: 30 }).length, 960 + 1920 + 1440);
 });
 
 const peakOf = (s, from, to) => {
@@ -67,6 +67,12 @@ test('smoothed tone switches cut splatter far from the tones', () => {
   const hard = splatterDb(modulate(bits, { ...opts, smoothMs: 0 }));
   const soft = splatterDb(modulate(bits, { ...opts, smoothMs: 2 }));
   assert.ok(soft < hard - 20, `3.5-6 kHz splatter: smoothed ${soft.toFixed(1)} dB vs hard ${hard.toFixed(1)} dB`);
+});
+
+test('default fade shrinks to fit a short lead and tail', () => {
+  const s = modulate([0, 1], { sampleRate: 48000, leadMs: 10, tailMs: 10 });
+  assert.ok(Math.abs(s[0]) < 0.01 && Math.abs(s[s.length - 1]) < 0.01, 'still fades from and to silence');
+  assert.ok(peakOf(s, 480, 480 + 960) > 0.79, 'bits keep full amplitude');
 });
 
 test('bad bits and options fail loudly', () => {
