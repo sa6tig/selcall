@@ -2,6 +2,9 @@
 
 let ctx = null;
 
+// Fade applied when playback is stopped early, so the cut does not click.
+const STOP_FADE_S = 0.01;
+
 /**
  * Create or resume the shared AudioContext. Call synchronously inside a user
  * gesture (autoplay policy); the returned promise may never settle if the
@@ -26,7 +29,8 @@ export async function play(samples, sampleRate) {
   buf.copyToChannel(samples, 0);
   const src = ctx.createBufferSource();
   src.buffer = buf;
-  src.connect(ctx.destination);
+  const gain = ctx.createGain();
+  src.connect(gain).connect(ctx.destination);
   let finish;
   const done = new Promise((resolve) => (finish = resolve));
   src.onended = () => finish();
@@ -34,8 +38,11 @@ export async function play(samples, sampleRate) {
   return {
     done,
     stop: () => {
+      const t = ctx.currentTime;
+      gain.gain.setValueAtTime(gain.gain.value, t);
+      gain.gain.linearRampToValueAtTime(0, t + STOP_FADE_S);
       try {
-        src.stop();
+        src.stop(t + STOP_FADE_S);
       } catch {
         /* already stopped */
       }

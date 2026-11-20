@@ -6,7 +6,7 @@ import { goertzel } from './helpers.js';
 test('length is lead plus bits / baud seconds plus tail', () => {
   const opts = { sampleRate: 48000, baud: 100 };
   assert.equal(modulate([0, 1, 0, 1], { ...opts, leadMs: 0, tailMs: 0, rampMs: 0 }).length, 1920);
-  assert.equal(modulate([0, 1, 0, 1], { ...opts, leadMs: 20, tailMs: 30 }).length, 960 + 1920 + 1440);
+  assert.equal(modulate([0, 1, 0, 1], { ...opts, leadMs: 20, tailMs: 30, rampMs: 5 }).length, 960 + 1920 + 1440);
 });
 
 const peakOf = (s, from, to) => {
@@ -52,6 +52,23 @@ test('phase is continuous (no large sample jumps) and amplitude bounded', () => 
   assert.ok(s.every((v) => Math.abs(v) <= Math.fround(0.8)));
 });
 
+test('smoothed tone switches cut splatter far from the tones', () => {
+  // A slope jump at each switch spreads energy well outside 1700-1870 Hz (heard as clicks).
+  const sr = 48000;
+  const opts = { sampleRate: sr, rampMs: 20, leadMs: 20, tailMs: 20 };
+  let seed = 12345; // fixed pseudo-random bits: a periodic pattern has a line spectrum that single bins miss
+  const bits = Array.from({ length: 200 }, () => ((seed = (seed * 1103515245 + 12345) >>> 0) >>> 16) & 1);
+  const band = (s, from, to) => {
+    let e = 0;
+    for (let f = from; f < to; f += 10) e += goertzel(s, 0, s.length, f, sr);
+    return e;
+  };
+  const splatterDb = (s) => 10 * Math.log10(band(s, 3500, 6000) / band(s, 1600, 1970));
+  const hard = splatterDb(modulate(bits, { ...opts, smoothMs: 0 }));
+  const soft = splatterDb(modulate(bits, { ...opts, smoothMs: 2 }));
+  assert.ok(soft < hard - 20, `3.5-6 kHz splatter: smoothed ${soft.toFixed(1)} dB vs hard ${hard.toFixed(1)} dB`);
+});
+
 test('bad bits and options fail loudly', () => {
   const bad = [
     [[], {}],
@@ -67,6 +84,8 @@ test('bad bits and options fail loudly', () => {
     [[0, 1], { leadMs: -1 }],
     [[0, 1], { rampMs: 40, leadMs: 50, tailMs: 30 }],
     [[0, 1], { rampMs: 40, leadMs: 30, tailMs: 50 }],
+    [[0, 1], { smoothMs: -1 }],
+    [[0, 1], { smoothMs: 11 }],
   ];
   for (const [bits, opts] of bad) {
     assert.throws(() => modulate(bits, opts), RangeError, JSON.stringify({ bits, opts }));
