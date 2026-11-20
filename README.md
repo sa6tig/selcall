@@ -1,4 +1,4 @@
-# selcall-web
+# selcall
 
 A static web app for an Android phone that plays CCIR 493-4 HF Selcall ("Open
 Selcall") individual calls. You hold the phone to the microphone of an SSB rig
