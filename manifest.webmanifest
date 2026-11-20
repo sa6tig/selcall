@@ -1,0 +1,13 @@
+{
+  "name": "HF Selcall",
+  "short_name": "Selcall",
+  "description": "Play CCIR 493-4 HF Selcall individual calls.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#12171e",
+  "theme_color": "#1b2430",
+  "icons": [
+    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
