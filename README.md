@@ -43,7 +43,9 @@ Pages URL or `adb reverse tcp:8000 tcp:8000`.
 The deploy workflow stamps `VERSION` in `sw.js` with the commit SHA, so every
 deploy gets a fresh offline cache. The cache is served first, so an installed
 copy fetches the update in the background on one launch with a connection and
-shows it on the launch after that.
+switches to it once every open copy of the app has been closed. A local,
+unstamped `sw.js` (`VERSION = 'dev'`) fetches from the network first, so edits
+show up on reload.
 
 `test/site.test.js` checks that every file the page loads is both in the
 service worker's `FILES` list and copied by the deploy workflow.

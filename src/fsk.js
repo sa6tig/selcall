@@ -8,6 +8,7 @@ export const DEFAULT_FSK = Object.freeze({
   freq1: 1870,
   amplitude: 0.8,
   rampMs: 5, // raised-cosine fade in/out to avoid clicks
+  leadMs: 30, // first bit's tone held before the frame; the fade-in happens here
   tailMs: 30, // last bit's tone held after the frame; the fade-out happens here
 });
 
@@ -25,7 +26,7 @@ function fail(name, value, rule) {
  * @returns {Float32Array}
  */
 export function modulate(bits, opts = {}) {
-  const { sampleRate, baud, freq0, freq1, amplitude, rampMs, tailMs } = { ...DEFAULT_FSK, ...opts };
+  const { sampleRate, baud, freq0, freq1, amplitude, rampMs, leadMs, tailMs } = { ...DEFAULT_FSK, ...opts };
   if (!Array.isArray(bits) || bits.length === 0) fail('bits', bits, 'a non-empty array');
   bits.forEach((b, i) => b === 0 || b === 1 || fail(`bits[${i}]`, b, '0 or 1'));
   if (!positive(sampleRate)) fail('sampleRate', sampleRate, 'a positive number');
@@ -34,20 +35,24 @@ export function modulate(bits, opts = {}) {
     if (!positive(f) || f >= sampleRate / 2) fail(name, f, 'positive and below sampleRate/2');
   }
   if (!positive(amplitude) || amplitude > 1) fail('amplitude', amplitude, 'in (0, 1]');
+  if (!nonNegative(leadMs)) fail('leadMs', leadMs, 'a non-negative number');
   if (!nonNegative(tailMs)) fail('tailMs', tailMs, 'a non-negative number');
-  // The fade-out must stay inside the tail, or it attenuates the last data bit.
-  if (!nonNegative(rampMs) || rampMs > tailMs) fail('rampMs', rampMs, `non-negative and at most tailMs (${tailMs})`);
+  // The fades must stay inside the lead and tail, or they attenuate the first/last data bit.
+  const maxRamp = Math.min(leadMs, tailMs);
+  if (!nonNegative(rampMs) || rampMs > maxRamp) fail('rampMs', rampMs, `non-negative and at most leadMs and tailMs (${maxRamp})`);
 
-  const total = Math.round((bits.length * sampleRate) / baud) + Math.round((tailMs * sampleRate) / 1000);
+  const lead = Math.round((leadMs * sampleRate) / 1000);
+  const total = lead + Math.round((bits.length * sampleRate) / baud) + Math.round((tailMs * sampleRate) / 1000);
   const out = new Float32Array(total);
   let phase = 0;
   for (let n = 0; n < total; n++) {
-    const bit = bits[Math.min(bits.length - 1, Math.floor((n * baud) / sampleRate))];
+    const k = Math.floor(((n - lead) * baud) / sampleRate);
+    const bit = bits[Math.min(bits.length - 1, Math.max(0, k))];
     phase += (2 * Math.PI * (bit ? freq1 : freq0)) / sampleRate;
     if (phase > 2 * Math.PI) phase -= 2 * Math.PI;
     out[n] = amplitude * Math.sin(phase);
   }
-  const ramp = Math.min(Math.round((rampMs * sampleRate) / 1000), Math.floor(total / 2));
+  const ramp = Math.round((rampMs * sampleRate) / 1000);
   for (let i = 0; i < ramp; i++) {
     const g = 0.5 - 0.5 * Math.cos((Math.PI * i) / ramp);
     out[i] *= g;

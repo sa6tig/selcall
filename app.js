@@ -1,6 +1,6 @@
-import { individualCallBits } from './src/encoder.js';
+import { individualCallBits, isValidId } from './src/encoder.js';
 import { modulate, DEFAULT_FSK } from './src/fsk.js';
-import { play } from './src/audio.js';
+import { play, unlock } from './src/audio.js';
 
 const KEY_SELF = 'selcall.self';
 const KEY_RECENT = 'selcall.recent';
@@ -22,12 +22,10 @@ function load(key, fallback) {
   }
 }
 
-const isId = (v) => typeof v === 'string' && /^(\d{4}|\d{6})$/.test(v);
-
 /** Stored recent IDs, dropping anything that is not a valid ID. */
 function loadRecent() {
   const v = load(KEY_RECENT, []);
-  return Array.isArray(v) ? v.filter(isId).slice(0, MAX_RECENT) : [];
+  return Array.isArray(v) ? v.filter(isValidId).slice(0, MAX_RECENT) : [];
 }
 
 function save(key, value) {
@@ -56,31 +54,58 @@ function remember(to, from) {
   renderRecent();
 }
 
-let current = null; // { cancel: () => void }
+/** Resolves after the browser has painted pending DOM changes. */
+const nextPaint = () => new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve)));
+
+let current = null; // { cancel: () => void } while a call is in progress
+
+// Stop is handled on click, before submission runs constraint validation, so it
+// works even if a field was edited to an invalid value during the call.
+callBtn.addEventListener('click', (e) => {
+  if (!current) return;
+  e.preventDefault();
+  current.cancel();
+});
+
+// Enter in a field would submit the form (and so press Stop) mid-call.
+form.addEventListener('keydown', (e) => {
+  if (current && e.key === 'Enter' && e.target !== callBtn) e.preventDefault();
+});
 
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
-  if (current) {
-    current.cancel();
-    return;
-  }
+  if (current) return;
   const to = toInput.value.trim();
   const from = fromInput.value.trim();
   const preambleBits = Number(form.elements.preamble.value);
 
+  // Start the audio context now, while still inside the user gesture.
+  unlock().catch(() => {}); // play() below reports any failure
+
   let cancelled = false;
-  let player = null;
-  current = { cancel: () => { cancelled = true; player?.stop(); } };
+  let onStop;
+  const stopped = new Promise((resolve) => (onStop = resolve));
+  current = { cancel: () => { cancelled = true; onStop(); } };
   callBtn.textContent = 'Stop';
   callBtn.classList.add('active');
 
   try {
-    const samples = modulate(individualCallBits({ to, from, preambleBits }));
+    const bits = individualCallBits({ to, from, preambleBits });
     remember(to, from);
     status.textContent = `Calling ${to} from ${from}…`;
-    player = await play(samples, DEFAULT_FSK.sampleRate);
-    if (cancelled) player.stop();
-    await player.done;
+    // Show the Stop state before the (blocking) sample generation.
+    await Promise.race([nextPaint(), stopped]);
+    if (!cancelled) {
+      const playing = play(modulate(bits), DEFAULT_FSK.sampleRate);
+      // play() may never settle if the audio context cannot resume; Stop must still work.
+      const player = await Promise.race([playing, stopped]);
+      if (player) {
+        await Promise.race([player.done, stopped]);
+        player.stop();
+      } else {
+        playing.then((p) => p.stop(), () => {});
+      }
+    }
     status.textContent = cancelled ? 'Stopped.' : 'Done. Release PTT.';
   } catch (err) {
     status.textContent = `Error: ${err.message}`;
@@ -92,7 +117,7 @@ form.addEventListener('submit', async (e) => {
 });
 
 const savedSelf = load(KEY_SELF, '');
-fromInput.value = isId(savedSelf) ? savedSelf : '';
+fromInput.value = isValidId(savedSelf) ? savedSelf : '';
 renderRecent();
 
 if ('serviceWorker' in navigator) {

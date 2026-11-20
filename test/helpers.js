@@ -13,15 +13,17 @@ export function goertzel(samples, start, len, freq, sampleRate) {
 
 /**
  * Non-coherent FSK demodulator: per bit window, pick the stronger tone.
+ * @param {number} [offset] sample index where the first bit starts
  * @returns {{bits: number[], minRatio: number}} minRatio = weakest winner/loser power ratio
  */
-export function demodulate(samples, nBits, { sampleRate, baud, freq0, freq1 }) {
+export function demodulate(samples, nBits, { sampleRate, baud, freq0, freq1 }, offset = 0) {
   const per = sampleRate / baud;
   const bits = [];
   let minRatio = Infinity;
   for (let i = 0; i < nBits; i++) {
-    const p0 = goertzel(samples, Math.round(i * per), Math.round(per), freq0, sampleRate);
-    const p1 = goertzel(samples, Math.round(i * per), Math.round(per), freq1, sampleRate);
+    const start = offset + Math.round(i * per);
+    const p0 = goertzel(samples, start, Math.round(per), freq0, sampleRate);
+    const p1 = goertzel(samples, start, Math.round(per), freq1, sampleRate);
     bits.push(p1 > p0 ? 1 : 0);
     minRatio = Math.min(minRatio, Math.max(p0, p1) / Math.min(p0, p1));
   }

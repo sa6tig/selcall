@@ -24,12 +24,19 @@ export const DEFAULT_PREAMBLE_BITS = 600;
 export const MAX_PREAMBLE_BITS = 6000;
 
 /**
+ * Whether `id` is a valid 4- or 6-digit station ID.
+ * @param {unknown} id
+ * @returns {boolean}
+ */
+export const isValidId = (id) => typeof id === 'string' && /^(\d{4}|\d{6})$/.test(id);
+
+/**
  * Split a 4- or 6-digit ID into two-digit symbols, most significant first.
  * @param {string} id
  * @returns {number[]}
  */
 export function idToSymbols(id) {
-  if (typeof id !== 'string' || !/^(\d{4}|\d{6})$/.test(id)) {
+  if (!isValidId(id)) {
     throw new RangeError(`ID must be 4 or 6 digits, got ${JSON.stringify(id)}`);
   }
   const out = [];

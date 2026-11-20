@@ -8,6 +8,15 @@ import { posix } from 'node:path';
 const root = new URL('../', import.meta.url);
 const read = (p) => readFileSync(new URL(p, root), 'utf8');
 
+/**
+ * Relative module specifiers in JS source: `import ... from`, `export ... from`,
+ * side-effect `import '...'`, and dynamic `import('...')` with a literal.
+ */
+function importsOf(source) {
+  const re = /(?:^\s*(?:import|export)\s[^'"]*?\bfrom\s*|^\s*import\s*|\bimport\(\s*)['"](\.{1,2}\/[^'"]+)['"]/gm;
+  return [...source.matchAll(re)].map((m) => m[1]);
+}
+
 /** Every site file reachable from index.html: its src/href assets, the manifest's icons, and the module import graph. */
 function siteFiles() {
   const files = new Set(['index.html', 'sw.js']);
@@ -21,7 +30,7 @@ function siteFiles() {
   const queue = [...files].filter((f) => f.endsWith('.js'));
   while (queue.length) {
     const file = queue.pop();
-    for (const [, spec] of read(file).matchAll(/^\s*import\s[^'"]*['"](\.{1,2}\/[^'"]+)['"]/gm)) {
+    for (const spec of importsOf(read(file))) {
       const dep = posix.normalize(posix.join(posix.dirname(file), spec));
       if (!files.has(dep)) {
         files.add(dep);
@@ -43,6 +52,21 @@ function deployedEntries() {
   assert.ok(line, 'workflow has a "cp -r ... _site/" line');
   return line[1].trim().split(/\s+/);
 }
+
+test('import scanner finds every relative module reference form', () => {
+  const src = [
+    "import { a } from './a.js';",
+    'import {\n  b,\n  c,\n} from "../b.js";',
+    "import './side.js';",
+    "export { d } from './d.js';",
+    "export * from './e.js';",
+    "const m = await import('./lazy.js');",
+    "import x from 'pkg';",
+    "const s = './not-an-import.js';",
+    "export const t = 'string';",
+  ].join('\n');
+  assert.deepEqual(importsOf(src), ['./a.js', '../b.js', './side.js', './d.js', './e.js', './lazy.js']);
+});
 
 test('import/asset graph finds the expected core files', () => {
   const files = siteFiles();
