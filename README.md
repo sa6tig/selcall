@@ -41,8 +41,12 @@ Service workers need HTTPS or localhost. To test on the phone, use the GitHub
 Pages URL or `adb reverse tcp:8000 tcp:8000`.
 
 The deploy workflow stamps `VERSION` in `sw.js` with the commit SHA, so every
-deploy gets a fresh offline cache. Installed copies update on the next launch
-with a connection.
+deploy gets a fresh offline cache. The cache is served first, so an installed
+copy fetches the update in the background on one launch with a connection and
+shows it on the launch after that.
+
+`test/site.test.js` checks that every file the page loads is both in the
+service worker's `FILES` list and copied by the deploy workflow.
 
 ## Deploy
 

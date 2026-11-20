@@ -7,7 +7,21 @@ import {
   frameSymbols,
   symbolBits,
   individualCallBits,
+  MAX_PREAMBLE_BITS,
 } from '../src/encoder.js';
+
+test('frameSymbols rejects a message without format specifier or EOS', () => {
+  assert.throws(() => frameSymbols([18, 81, 100, 18, 82, 117]), RangeError);
+  assert.throws(() => frameSymbols([120, 18, 81, 100, 18, 82]), RangeError);
+  assert.throws(() => frameSymbols([120, 117]), RangeError);
+});
+
+test('individualCallBits rejects bad preamble lengths', () => {
+  for (const preambleBits of [NaN, -1, 1.5, MAX_PREAMBLE_BITS + 1, '600']) {
+    assert.throws(() => individualCallBits({ to: '1881', from: '1882', preambleBits }), RangeError, String(preambleBits));
+  }
+  assert.doesNotThrow(() => individualCallBits({ to: '1881', from: '1882', preambleBits: 0 }));
+});
 
 test('idToSymbols splits into two-digit symbols and keeps leading zeros', () => {
   assert.deepEqual(idToSymbols('1881'), [18, 81]);

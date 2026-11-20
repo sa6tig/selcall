@@ -11,14 +11,33 @@ export const DEFAULT_FSK = Object.freeze({
   tailMs: 30, // last bit's tone held after the frame; the fade-out happens here
 });
 
+const positive = (v) => typeof v === 'number' && Number.isFinite(v) && v > 0;
+const nonNegative = (v) => typeof v === 'number' && Number.isFinite(v) && v >= 0;
+
+function fail(name, value, rule) {
+  throw new RangeError(`${name} must be ${rule}, got ${value}`);
+}
+
 /**
  * Modulate bits into audio samples.
- * @param {number[]} bits
+ * @param {number[]} bits non-empty, each 0 or 1
  * @param {Partial<typeof DEFAULT_FSK>} [opts]
  * @returns {Float32Array}
  */
 export function modulate(bits, opts = {}) {
   const { sampleRate, baud, freq0, freq1, amplitude, rampMs, tailMs } = { ...DEFAULT_FSK, ...opts };
+  if (!Array.isArray(bits) || bits.length === 0) fail('bits', bits, 'a non-empty array');
+  bits.forEach((b, i) => b === 0 || b === 1 || fail(`bits[${i}]`, b, '0 or 1'));
+  if (!positive(sampleRate)) fail('sampleRate', sampleRate, 'a positive number');
+  if (!positive(baud) || baud > sampleRate / 2) fail('baud', baud, 'positive and at most sampleRate/2');
+  for (const [name, f] of [['freq0', freq0], ['freq1', freq1]]) {
+    if (!positive(f) || f >= sampleRate / 2) fail(name, f, 'positive and below sampleRate/2');
+  }
+  if (!positive(amplitude) || amplitude > 1) fail('amplitude', amplitude, 'in (0, 1]');
+  if (!nonNegative(tailMs)) fail('tailMs', tailMs, 'a non-negative number');
+  // The fade-out must stay inside the tail, or it attenuates the last data bit.
+  if (!nonNegative(rampMs) || rampMs > tailMs) fail('rampMs', rampMs, `non-negative and at most tailMs (${tailMs})`);
+
   const total = Math.round((bits.length * sampleRate) / baud) + Math.round((tailMs * sampleRate) / 1000);
   const out = new Float32Array(total);
   let phase = 0;

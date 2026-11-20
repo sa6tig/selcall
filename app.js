@@ -22,6 +22,14 @@ function load(key, fallback) {
   }
 }
 
+const isId = (v) => typeof v === 'string' && /^(\d{4}|\d{6})$/.test(v);
+
+/** Stored recent IDs, dropping anything that is not a valid ID. */
+function loadRecent() {
+  const v = load(KEY_RECENT, []);
+  return Array.isArray(v) ? v.filter(isId).slice(0, MAX_RECENT) : [];
+}
+
 function save(key, value) {
   try {
     localStorage.setItem(key, JSON.stringify(value));
@@ -31,7 +39,7 @@ function save(key, value) {
 }
 
 function renderRecent() {
-  const recent = load(KEY_RECENT, []);
+  const recent = loadRecent();
   $('recent').replaceChildren(...recent.map((id) => Object.assign(document.createElement('option'), { value: id })));
   $('recent-buttons').replaceChildren(
     ...recent.map((id) => {
@@ -44,7 +52,7 @@ function renderRecent() {
 
 function remember(to, from) {
   save(KEY_SELF, from);
-  save(KEY_RECENT, [to, ...load(KEY_RECENT, []).filter((x) => x !== to)].slice(0, MAX_RECENT));
+  save(KEY_RECENT, [to, ...loadRecent().filter((x) => x !== to)].slice(0, MAX_RECENT));
   renderRecent();
 }
 
@@ -83,7 +91,8 @@ form.addEventListener('submit', async (e) => {
   }
 });
 
-fromInput.value = load(KEY_SELF, '');
+const savedSelf = load(KEY_SELF, '');
+fromInput.value = isId(savedSelf) ? savedSelf : '';
 renderRecent();
 
 if ('serviceWorker' in navigator) {

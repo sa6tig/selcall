@@ -20,6 +20,9 @@ export const SYM = Object.freeze({
 /** Number of alternating dot-pattern bits sent before the frame by default (6 s at 100 Bd). */
 export const DEFAULT_PREAMBLE_BITS = 600;
 
+/** Upper bound on the preamble (60 s at 100 Bd). */
+export const MAX_PREAMBLE_BITS = 6000;
+
 /**
  * Split a 4- or 6-digit ID into two-digit symbols, most significant first.
  * @param {string} id
@@ -60,6 +63,9 @@ export function individualCallMessage({ to, from }) {
 export function frameSymbols(message) {
   const fmt = message[0];
   const eos = message[message.length - 1];
+  if (message.length < 3 || !(fmt >= 100 && fmt <= 127) || !(eos >= 100 && eos <= 127)) {
+    throw new RangeError('message must start with a format specifier and end with an EOS command symbol (100-127)');
+  }
   const dx = [...message, eos, eos];
   const rx = [fmt, fmt, ...message];
   const out = [];
@@ -95,6 +101,9 @@ export function symbolBits(value) {
  * @returns {number[]}
  */
 export function individualCallBits({ to, from, preambleBits = DEFAULT_PREAMBLE_BITS }) {
+  if (!Number.isInteger(preambleBits) || preambleBits < 0 || preambleBits > MAX_PREAMBLE_BITS) {
+    throw new RangeError(`preambleBits must be an integer 0-${MAX_PREAMBLE_BITS}, got ${preambleBits}`);
+  }
   const bits = [];
   for (let i = 0; i < preambleBits; i++) bits.push(i & 1);
   for (const s of frameSymbols(individualCallMessage({ to, from }))) bits.push(...symbolBits(s));
